@@ -149,8 +149,8 @@ const preloadResources = opt => {
     if (/^data:|blob:/i.test(responseUrl)) return;
     const ct = response.headers()["content-type"] || "";
     const route = responseUrl.replace(basePath, "");
-    if (/^http:\/\/localhost/i.test(responseUrl)) {
-      if (uniqueResources.has(responseUrl)) return;
+    if (/^http:\/\/localhost/i.test(responseUrl) || cacheAjaxRequests.includes(responseUrl.split('/')[2])) {
+      // if (uniqueResources.has(responseUrl)) return;
       if (preloadImages && /\.(png|jpg|jpeg|webp|gif|svg)$/.test(responseUrl)) {
         if (http2PushManifest) {
           http2PushManifestItems.push({
