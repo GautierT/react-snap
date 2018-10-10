@@ -133,7 +133,7 @@ const crawl = async opt => {
 
   const onUnhandledRejection = error => {
     console.log("🔥  UnhandledPromiseRejectionWarning", error);
-    shuttingDown = true;
+    // shuttingDown = true;
   };
   process.on("unhandledRejection", onUnhandledRejection);
 
@@ -191,6 +191,7 @@ const crawl = async opt => {
         if (options.viewport) await page.setViewport(options.viewport);
         if (options.skipThirdPartyRequests)
           await skipThirdPartyRequests({ page, options, basePath });
+        /*
         enableLogging({
           page,
           options,
@@ -200,11 +201,12 @@ const crawl = async opt => {
           },
           sourcemapStore
         });
+        */
         beforeFetch && beforeFetch({ page, route });
         await page.setUserAgent(options.userAgent);
         const tracker = createTracker(page)
         try {
-          await page.goto(pageUrl, { waitUntil: "load" });
+          await page.goto(pageUrl, { timeout: 30000, waitUntil: "networkidle0" });
         } catch (e) {
           e.message = augmentTimeoutError(e.message, tracker);
           throw e;
@@ -220,10 +222,12 @@ const crawl = async opt => {
         await page.close();
         console.log(`✅  crawled ${processed + 1} out of ${enqued} (${route})`);
       } catch (e) {
+        console.log(`error on route ${route}`)
+        addToQueue(pageUrl)
         if (!shuttingDown) {
           console.log(`🔥  error at ${route}`, e);
         }
-        shuttingDown = true;
+        // shuttingDown = true;
       }
     } else {
       // this message creates a lot of noise
