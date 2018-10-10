@@ -148,10 +148,15 @@ const crawl = async opt => {
    * @param {string} path
    * @returns {void}
    */
-  const addToQueue = newUrl => {
+  const addToQueue = (newUrl, force = false) => {
     const { hostname, search, hash } = url.parse(newUrl);
     newUrl = newUrl.replace(`${search || ""}${hash || ""}`, "");
-    if (hostname === "localhost" && !uniqueUrls.has(newUrl) && !streamClosed) {
+    if ((hostname === "localhost" && !uniqueUrls.has(newUrl) && !streamClosed) || force === true) {
+      if (force === true) {
+        console.log(`${newUrl} added to queue by force`)
+      } else {
+        console.log(`${newUrl} added to queue`)
+      }
       uniqueUrls.add(newUrl);
       enqued++;
       queue.write(newUrl);
@@ -223,7 +228,7 @@ const crawl = async opt => {
         console.log(`✅  crawled ${processed + 1} out of ${enqued} (${route})`);
       } catch (e) {
         console.log(`error on route ${route}`)
-        addToQueue(pageUrl)
+        addToQueue(pageUrl, true)
         if (!shuttingDown) {
           console.log(`🔥  error at ${route}`, e);
         }
