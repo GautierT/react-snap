@@ -8,6 +8,7 @@ const publicUrl = process.env.PUBLIC_URL || homepage;
 
 run({
   publicPath: publicUrl ? url.parse(publicUrl).pathname : "/",
+  homepage,
   ...reactSnap
 }).catch((error) => {
   console.error(error)

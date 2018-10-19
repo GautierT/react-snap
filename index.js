@@ -19,6 +19,7 @@ const defaultOptions = {
   destination: null,
   concurrency: 4,
   include: ["/"],
+  sitemap: false,
   userAgent: "ReactSnap",
   // 4 params below will be refactored to one: `puppeteer: {}`
   // https://github.com/stereobooster/react-snap/issues/120
@@ -492,6 +493,23 @@ const saveAsPng = ({ page, filePath, options, route }) => {
   return page.screenshot({ path: screenshotPath });
 };
 
+
+const buildSitemap = (routes, homepage) => {
+  const domain = homepage.replace(/\/$/, '')
+  return `
+    <?xml version="1.0" encoding="UTF-8"?>
+    <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+      ${routes.map(route => `
+        <url>
+          <loc>${domain + route}</loc>
+          <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+          <priority>0.5</priority>
+        </url>
+      `).join(' ')}
+    </urlset>
+  `;
+};
+
 const run = async (userOptions, { fs } = { fs: nativeFs }) => {
   let options;
   try {
@@ -540,8 +558,9 @@ const run = async (userOptions, { fs } = { fs: nativeFs }) => {
   const basePath = `http://localhost:${options.port}`;
   const publicPath = options.publicPath;
   const ajaxCache = {};
-  const { http2PushManifest } = options;
+  const { http2PushManifest, sitemap } = options;
   const http2PushManifestItems = {};
+  const sitemapItems = []
 
   await crawl({
     options,
@@ -577,6 +596,9 @@ const run = async (userOptions, { fs } = { fs: nativeFs }) => {
     },
     afterFetch: async ({ page, route, browser }) => {
       const pageUrl = `${basePath}${route}`;
+
+      if (!route.endsWith("/404.html")) sitemapItems.push(route)
+
       if (options.removeStyleTags) await removeStyleTags({ page });
       if (options.removeScriptTags) await removeScriptTags({ page });
       if (options.removeBlobs) await removeBlobs({ page });
@@ -695,6 +717,20 @@ const run = async (userOptions, { fs } = { fs: nativeFs }) => {
           `${destinationDir}/http2-push-manifest.json`,
           JSON.stringify(manifest)
         );
+      }
+      if (sitemap) {
+        if (!options.homepage) {
+          console.log('⚠️   To generate a sitemap.xml a domain is required, add homepage to package.json');
+          return;
+        }
+
+        const xml = buildSitemap(sitemapItems, options.homepage);
+
+        fs.writeFileSync(
+          `${destinationDir}/sitemap.xml`,
+          xml.replace(/^\s+/gm, '')
+        );
+        console.log('Sitemap generated!');
       }
     }
   });
