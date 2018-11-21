@@ -184,6 +184,7 @@ const preloadResources = opt => {
             const linkTag = document.createElement("link");
             linkTag.setAttribute("rel", "preload");
             linkTag.setAttribute("as", "font");
+            linkTag.setAttribute("crossorigin", "anonymous");
             linkTag.setAttribute("href", route);
             // Append to head instead of body
             document.head.appendChild(linkTag);
