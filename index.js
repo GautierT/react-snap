@@ -139,6 +139,7 @@ const preloadResources = opt => {
     page,
     basePath,
     preloadImages,
+    preloadFonts,
     cacheAjaxRequests,
     preconnectThirdParty,
     http2PushManifest,
@@ -591,11 +592,13 @@ const run = async (userOptions, { fs } = { fs: nativeFs }) => {
     beforeFetch: async ({ page, route }) => {
       const {
         preloadImages,
+        preloadFonts,
         cacheAjaxRequests,
         preconnectThirdParty
       } = options;
       if (
         preloadImages ||
+        preloadFonts ||
         cacheAjaxRequests ||
         preconnectThirdParty ||
         http2PushManifest
@@ -605,6 +608,7 @@ const run = async (userOptions, { fs } = { fs: nativeFs }) => {
             page,
             basePath,
             preloadImages,
+            preloadFonts,
             cacheAjaxRequests,
             preconnectThirdParty,
             http2PushManifest,
