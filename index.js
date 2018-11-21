@@ -19,6 +19,7 @@ const defaultOptions = {
   destination: null,
   concurrency: 4,
   include: ["/"],
+  exclude: null,
   sitemap: false,
   userAgent: "ReactSnap",
   // 4 params below will be refactored to one: `puppeteer: {}`
@@ -69,6 +70,7 @@ const defaultOptions = {
   //# even more workarounds
   removeStyleTags: false,
   preloadImages: false,
+  preloadFonts: false,
   // add async true to script tags
   asyncScriptTags: false,
   //# another feature creep
@@ -151,7 +153,8 @@ const preloadResources = opt => {
     const ct = response.headers()["content-type"] || "";
     const route = responseUrl.replace(basePath, "");
     if (/^http:\/\/localhost/i.test(responseUrl) || cacheAjaxRequests.includes(responseUrl.split('/')[2])) {
-      // if (uniqueResources.has(responseUrl)) return;
+      // Added a condition to force crawl and caching for url in the cacheAjaxRequests array
+      if (uniqueResources.has(responseUrl) && !cacheAjaxRequests.includes(responseUrl.split('/')[2])) return;
       if (preloadImages && /\.(png|jpg|jpeg|webp|gif|svg)$/.test(responseUrl)) {
         if (http2PushManifest) {
           http2PushManifestItems.push({
@@ -164,7 +167,25 @@ const preloadResources = opt => {
             linkTag.setAttribute("rel", "preload");
             linkTag.setAttribute("as", "image");
             linkTag.setAttribute("href", route);
-            document.body.appendChild(linkTag);
+            // Append to head instead of body
+            document.head.appendChild(linkTag);
+          }, route);
+        }
+        // Adding a condition for caching woff and woff2
+      } else if (preloadFonts && /\.(woff|woff2)$/.test(responseUrl)) {
+        if (http2PushManifest) {
+          http2PushManifestItems.push({
+            link: route,
+            as: "font"
+          });
+        } else {
+          await page.evaluate(route => {
+            const linkTag = document.createElement("link");
+            linkTag.setAttribute("rel", "preload");
+            linkTag.setAttribute("as", "font");
+            linkTag.setAttribute("href", route);
+            // Append to head instead of body
+            document.head.appendChild(linkTag);
           }, route);
         }
       } else if (cacheAjaxRequests && ct.includes("json")) {
