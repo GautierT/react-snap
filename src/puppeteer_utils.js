@@ -23,6 +23,13 @@ const skipThirdPartyRequests = async opt => {
   });
 };
 
+const isExcluded = (route, excludedPages) => {
+  if (!excludedPages) return false
+  return !!excludedPages.find((element) => {
+    return route.startsWith(element)
+  })
+}
+
 /**
  * @param {{page: Page, options: {sourceMaps: boolean}, route: string, onError: ?function }} opt
  * @return {void}
@@ -133,6 +140,7 @@ const crawl = async opt => {
 
   const onUnhandledRejection = error => {
     console.log("🔥  UnhandledPromiseRejectionWarning", error);
+    // Disabled shutdown on onUnhandledRejection to be able to re-crawl the url
     // shuttingDown = true;
   };
   process.on("unhandledRejection", onUnhandledRejection);
@@ -151,6 +159,7 @@ const crawl = async opt => {
   const addToQueue = (newUrl, force = false) => {
     const { hostname, search, hash } = url.parse(newUrl);
     newUrl = newUrl.replace(`${search || ""}${hash || ""}`, "");
+    // Add conditio to re-crawl the url by force
     if ((hostname === "localhost" && !uniqueUrls.has(newUrl) && !streamClosed) || force === true) {
       if (force === true) {
         console.log(`${newUrl} added to queue by force`)
@@ -188,8 +197,8 @@ const crawl = async opt => {
       const filePath = path.join(sourceDir, routePath);
       skipExistingFile = fs.existsSync(filePath);
     }
-
-    if (!shuttingDown && !skipExistingFile) {
+    // Skip path in the options.exclude array
+    if (!shuttingDown && !skipExistingFile && !isExcluded(route, options.exclude)) {
       try {
         const page = await browser.newPage();
         await page.setCacheEnabled(options.puppeteer.cache);
@@ -228,6 +237,7 @@ const crawl = async opt => {
         console.log(`✅  crawled ${processed + 1} out of ${enqued} (${route})`);
       } catch (e) {
         console.log(`error on route ${route}`)
+        // If we have an error on a route we re-add the url to crawl list by force
         addToQueue(pageUrl, true)
         if (!shuttingDown) {
           console.log(`🔥  error at ${route}`, e);
