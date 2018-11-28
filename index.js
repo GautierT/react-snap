@@ -48,8 +48,8 @@ const defaultOptions = {
   },
   sourceMaps: true,
   //# workarounds
-  // TODO: use false, CRAv2 and CRAv1 (instead of true)
-  fixWebpackChunksIssue: true,
+  // using CRA1 for compatibility with previous version will be changed to false in v2
+  fixWebpackChunksIssue: "CRA1",
   removeBlobs: true,
   fixInsertRule: true,
   skipThirdPartyRequests: false,
@@ -111,8 +111,18 @@ const defaults = userOptions => {
     console.log("🔥  asyncJs option renamed to asyncScriptTags");
     options.asyncScriptTags = options.asyncJs;
   }
-  if (options.saveAs !== "html" && options.saveAs !== "png") {
-    console.log("🔥  saveAs supported values are html and png");
+  if (options.fixWebpackChunksIssue === true) {
+    console.log(
+      "🔥  fixWebpackChunksIssue - behaviour changed, valid options are CRA1, CRA2, false"
+    );
+    options.fixWebpackChunksIssue = "CRA1";
+  }
+  if (
+    options.saveAs !== "html" &&
+    options.saveAs !== "png" &&
+    options.saveAs !== "jpeg"
+  ) {
+    console.log("🔥  saveAs supported values are html, png, and jpeg");
     exit = true;
   }
   if (exit) throw new Error();
@@ -130,6 +140,8 @@ const defaults = userOptions => {
   );
   return options;
 };
+
+const normalizePath = path => (path === "/" ? "/" : path.replace(/\/$/, ""));
 
 /**
  *
@@ -355,10 +367,15 @@ const inlineCss = async opt => {
     );
   } else {
     await page.evaluate(allCss => {
+      if (!allCss) return;
+
       const head = document.head || document.getElementsByTagName("head")[0],
         style = document.createElement("style");
       style.type = "text/css";
       style.appendChild(document.createTextNode(allCss));
+
+      if (!head) throw new Error("No <head> element found in document");
+
       head.appendChild(style);
 
       const stylesheets = Array.from(
@@ -382,7 +399,7 @@ const asyncScriptTags = ({ page }) => {
   });
 };
 
-const fixWebpackChunksIssuev1 = ({
+const fixWebpackChunksIssue1 = ({
   page,
   basePath,
   http2PushManifest,
@@ -443,7 +460,7 @@ const fixWebpackChunksIssuev1 = ({
   );
 };
 
-const fixWebpackChunksIssuev2 = ({
+const fixWebpackChunksIssue2 = ({
   page,
   basePath,
   http2PushManifest,
@@ -580,7 +597,7 @@ const saveAsPng = ({ page, filePath, options, route }) => {
   if (route.endsWith(".html")) {
     screenshotPath = filePath.replace(/\.html$/, ".png");
   } else if (route === "/") {
-    screenshotPath = `${filePath}/index.png`;
+    screenshotPath = `${filePath}index.png`;
   } else {
     screenshotPath = `${filePath.replace(/\/$/, "")}.png`;
   }
@@ -602,6 +619,19 @@ const buildSitemap = (routes, homepage) => {
       `).join(' ')}
     </urlset>
   `;
+};
+
+const saveAsJpeg = ({ page, filePath, options, route }) => {
+  mkdirp.sync(path.dirname(filePath));
+  let screenshotPath;
+  if (route.endsWith(".html")) {
+    screenshotPath = filePath.replace(/\.html$/, ".jpeg");
+  } else if (route === "/") {
+    screenshotPath = `${filePath}index.jpeg`;
+  } else {
+    screenshotPath = `${filePath.replace(/\/$/, "")}.jpeg`;
+  }
+  return page.screenshot({ path: screenshotPath });
 };
 
 const run = async (userOptions, { fs } = { fs: nativeFs }) => {
@@ -723,15 +753,17 @@ const run = async (userOptions, { fs } = { fs: nativeFs }) => {
           }
         }
       }
-      if (options.fixWebpackChunksIssue === "CRAv2") {
-        await fixWebpackChunksIssuev2({
+
+      if (options.fixWebpackChunksIssue === "CRA2") {
+        await fixWebpackChunksIssue2({
           page,
           basePath,
           http2PushManifest,
           inlineCss: options.inlineCss
         });
-      } else if (options.fixWebpackChunksIssue) {
-        await fixWebpackChunksIssuev1({
+
+      } else if (options.fixWebpackChunksIssue === "CRA1") {
+        await fixWebpackChunksIssue1({
           page,
           basePath,
           http2PushManifest,
@@ -788,12 +820,23 @@ const run = async (userOptions, { fs } = { fs: nativeFs }) => {
       if (options.fixInsertRule) await fixInsertRule({ page });
       await fixFormFields({ page });
 
-      const routePath = route.replace(publicPath, "");
-      const filePath = path.join(destinationDir, routePath);
+      let routePath = route.replace(publicPath, "");
+      let filePath = path.join(destinationDir, routePath);
       if (options.saveAs === "html") {
         await saveAsHtml({ page, filePath, options, route, fs });
+        routePath = normalizePath(routePath);
+        let newPath = await page.evaluate(() => location.pathname);
+        newPath = newPath.replace(publicPath, "");
+        newPath = normalizePath(newPath);
+        if (routePath !== newPath) {
+          console.log(`💬  in browser redirect (${newPath})`);
+          filePath = path.join(destinationDir, newPath);
+          await saveAsHtml({ page, filePath, options, route, fs });
+        }
       } else if (options.saveAs === "png") {
         await saveAsPng({ page, filePath, options, route, fs });
+      } else if (options.saveAs === "jpeg") {
+        await saveAsJpeg({ page, filePath, options, route, fs });
       }
     },
     onEnd: () => {
