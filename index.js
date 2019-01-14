@@ -166,9 +166,16 @@ const preloadResources = opt => {
     if (/^data:|blob:/i.test(responseUrl)) return;
     const ct = response.headers()["content-type"] || "";
     const route = responseUrl.replace(basePath, "");
-    if (/^http:\/\/localhost/i.test(responseUrl) || cacheAjaxRequests.includes(responseUrl.split('/')[2])) {
+    if (
+      /^http:\/\/localhost/i.test(responseUrl) ||
+      cacheAjaxRequests.includes(responseUrl.split("/")[2])
+    ) {
       // Added a condition to force crawl and caching for url in the cacheAjaxRequests array
-      if (uniqueResources.has(responseUrl) && !cacheAjaxRequests.includes(responseUrl.split('/')[2])) return;
+      if (
+        uniqueResources.has(responseUrl) &&
+        !cacheAjaxRequests.includes(responseUrl.split("/")[2])
+      )
+        return;
       if (preloadImages && /\.(png|jpg|jpeg|webp|gif|svg)$/.test(responseUrl)) {
         if (http2PushManifest) {
           http2PushManifestItems.push({
@@ -604,19 +611,25 @@ const saveAsPng = ({ page, filePath, options, route }) => {
   return page.screenshot({ path: screenshotPath });
 };
 
-
 const buildSitemap = (routes, homepage) => {
-  const domain = homepage.replace(/\/$/, '')
+  const domain = homepage.replace(/\/$/, "");
   return `
     <?xml version="1.0" encoding="UTF-8"?>
     <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-      ${routes.map(route => `
+      ${routes
+        .map(route => {
+          if (!route.endsWith("/")) {
+            route = route + "/";
+          }
+          return `
         <url>
           <loc>${domain + route}</loc>
-          <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+          <lastmod>${new Date().toISOString().split("T")[0]}</lastmod>
           <priority>0.5</priority>
         </url>
-      `).join(' ')}
+      `;
+        })
+        .join(" ")}
     </urlset>
   `;
 };
@@ -666,15 +679,15 @@ const run = async (userOptions, { fs } = { fs: nativeFs }) => {
     return Promise.reject("");
   }
 
-  fs
-    .createReadStream(path.join(sourceDir, "index.html"))
-    .pipe(fs.createWriteStream(path.join(sourceDir, "200.html")));
+  fs.createReadStream(path.join(sourceDir, "index.html")).pipe(
+    fs.createWriteStream(path.join(sourceDir, "200.html"))
+  );
 
   if (destinationDir !== sourceDir && options.saveAs === "html") {
     mkdirp.sync(destinationDir);
-    fs
-      .createReadStream(path.join(sourceDir, "index.html"))
-      .pipe(fs.createWriteStream(path.join(destinationDir, "200.html")));
+    fs.createReadStream(path.join(sourceDir, "index.html")).pipe(
+      fs.createWriteStream(path.join(destinationDir, "200.html"))
+    );
   }
 
   const server = options.externalServer ? null : startServer(options);
@@ -684,7 +697,7 @@ const run = async (userOptions, { fs } = { fs: nativeFs }) => {
   const ajaxCache = {};
   const { http2PushManifest, sitemap } = options;
   const http2PushManifestItems = {};
-  const sitemapItems = []
+  const sitemapItems = [];
 
   await crawl({
     options,
@@ -724,7 +737,7 @@ const run = async (userOptions, { fs } = { fs: nativeFs }) => {
     afterFetch: async ({ page, route, browser, addToQueue }) => {
       const pageUrl = `${basePath}${route}`;
 
-      if (!route.endsWith("/404.html")) sitemapItems.push(route)
+      if (!route.endsWith("/404.html")) sitemapItems.push(route);
 
       if (options.removeStyleTags) await removeStyleTags({ page });
       if (options.removeScriptTags) await removeScriptTags({ page });
@@ -828,7 +841,7 @@ const run = async (userOptions, { fs } = { fs: nativeFs }) => {
         );
         routePath = normalizePath(routePath);
         if (routePath !== newPath) {
-          console.log(newPath)
+          console.log(newPath);
           console.log(`💬  in browser redirect (${newPath})`);
           addToQueue(newRoute);
         }
@@ -866,7 +879,9 @@ const run = async (userOptions, { fs } = { fs: nativeFs }) => {
       }
       if (sitemap) {
         if (!options.homepage) {
-          console.log('⚠️   To generate a sitemap.xml a domain is required, add homepage to package.json');
+          console.log(
+            "⚠️   To generate a sitemap.xml a domain is required, add homepage to package.json"
+          );
           return;
         }
 
@@ -874,9 +889,9 @@ const run = async (userOptions, { fs } = { fs: nativeFs }) => {
 
         fs.writeFileSync(
           `${destinationDir}/sitemap.xml`,
-          xml.replace(/^\s+/gm, '')
+          xml.replace(/^\s+/gm, "")
         );
-        console.log('Sitemap generated!');
+        console.log("Sitemap generated!");
       }
     }
   });
