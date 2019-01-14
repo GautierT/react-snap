@@ -721,7 +721,7 @@ const run = async (userOptions, { fs } = { fs: nativeFs }) => {
         http2PushManifestItems[route] = hpm;
       }
     },
-    afterFetch: async ({ page, route, browser }) => {
+    afterFetch: async ({ page, route, browser, addToQueue }) => {
       const pageUrl = `${basePath}${route}`;
 
       if (!route.endsWith("/404.html")) sitemapItems.push(route)
@@ -753,7 +753,6 @@ const run = async (userOptions, { fs } = { fs: nativeFs }) => {
           }
         }
       }
-
       if (options.fixWebpackChunksIssue === "CRA2") {
         await fixWebpackChunksIssue2({
           page,
@@ -761,7 +760,6 @@ const run = async (userOptions, { fs } = { fs: nativeFs }) => {
           http2PushManifest,
           inlineCss: options.inlineCss
         });
-
       } else if (options.fixWebpackChunksIssue === "CRA1") {
         await fixWebpackChunksIssue1({
           page,
@@ -824,14 +822,15 @@ const run = async (userOptions, { fs } = { fs: nativeFs }) => {
       let filePath = path.join(destinationDir, routePath);
       if (options.saveAs === "html") {
         await saveAsHtml({ page, filePath, options, route, fs });
+        let newRoute = await page.evaluate(() => location.toString());
+        newPath = normalizePath(
+          newRoute.replace(publicPath, "").replace(basePath, "")
+        );
         routePath = normalizePath(routePath);
-        let newPath = await page.evaluate(() => location.pathname);
-        newPath = newPath.replace(publicPath, "");
-        newPath = normalizePath(newPath);
         if (routePath !== newPath) {
+          console.log(newPath)
           console.log(`💬  in browser redirect (${newPath})`);
-          filePath = path.join(destinationDir, newPath);
-          await saveAsHtml({ page, filePath, options, route, fs });
+          addToQueue(newRoute);
         }
       } else if (options.saveAs === "png") {
         await saveAsPng({ page, filePath, options, route, fs });
